@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weather App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+  </head>
+  <body>
+    <i id="notification-bell" class="fas fa-bell" onclick="toggleNotifications()"></i>
+
+    <div id="notification-container">
+      <h4>Weather Alerts:</h4>
+      <ul id="notification-list"></ul>
+    </div>
+    <div class="container">
+      <h1>Weather App</h1>
+      <input type="text" id="cityInput" placeholder="Enter city name..." />
+      <button onclick="getWeather()">Get Weather</button>
+      <button onclick="getLocationWeather()">Use My Location</button>
+
+      <div id="weather-info"></div>
+    </div>
+
+    <script>
+      let hasUnreadNotification = false;
+
+      function toggleNotifications() {
+        const notificationContainer = document.getElementById("notification-container");
+        const bellIcon = document.getElementById("notification-bell");
+
+        if (notificationContainer.style.display === "block") {
+          notificationContainer.style.display = "none";
+          bellIcon.classList.remove("active");
+          hasUnreadNotification = false;
+        } else {
+          notificationContainer.style.display = "block";
+          if (hasUnreadNotification) {
+            bellIcon.classList.add("active");
+          }
+        }
+      }
+
+      function getWeather() {
+        const city = document.getElementById("cityInput").value;
+        if (!city) {
+          alert("Please enter a city name!");
+          return;
+        }
+
+        fetch(`/weather?city=${city}`)
+          .then((response) => response.json())
+          .then((data) => displayWeather(data))
+          .catch((error) => console.error("Error fetching weather:", error));
+      }
+
+      function getLocationWeather() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              fetch(`/weather?lat=${latitude}&lon=${longitude}`)
+                .then((response) => response.json())
+                .then((data) => displayWeather(data))
+                .catch((error) => console.error("Error fetching weather:", error));
+            },
+            (error) => {
+              alert("Failed to get location. Please allow location access.");
+              console.error("Geolocation error:", error);
+            }
+          );
+        } else {
+          alert("Geolocation is not supported by this browser.");
+        }
+      }
+
+      function displayWeather(data) {
+        const weatherInfo = document.getElementById("weather-info");
+        if (data.error) {
+          weatherInfo.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+        } else {
+          weatherInfo.innerHTML = `
+                    <h3>Weather in ${data.weather.name}</h3>
+                    <p>Temperature: ${data.weather.main.temp}°C</p>
+                    <p>Humidity: ${data.weather.main.humidity}%</p>
+                    <p>Wind Speed: ${data.weather.wind.speed} m/s</p>
+                    <p><strong>Alerts:</strong> ${data.alerts.length > 0 ? data.alerts.join(", ") : "No alerts"}</p>
+                `;
+        }
+      }
+
+      function startNotifications() {
+        fetch("/set_notifications", {
+          method: "POST",
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log(data.message);
+            alert(data.message);
+            setInterval(checkWeatherAlerts, 10000);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      }
+
+      function checkWeatherAlerts() {
+        fetch("/weather")
+          .then((response) => response.json())
+          .then((data) => {
+            const alerts = data.alerts || [];
+
+            if (alerts.length > 0) {
+              const notificationList = document.getElementById("notification-list");
+              notificationList.innerHTML = "";
+
+              alerts.forEach((alert) => {
+                const listItem = document.createElement("li");
+                listItem.textContent = alert;
+                notificationList.appendChild(listItem);
+              });
+
+              const bellIcon = document.getElementById("notification-bell");
+              bellIcon.classList.add("active");
+              hasUnreadNotification = true;
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching alerts:", error);
+          });
+      }
+      startNotifications();
+    </script>
+  </body>
+</html>
