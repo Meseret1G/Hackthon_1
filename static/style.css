@@ -12,6 +12,32 @@ body {
     right: 20px;
     color: #ccc;
 }
+button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+#weather-info, #forecast-info {
+    margin-top: 20px;
+    font-family: Arial, sans-serif;
+}
+
+p {
+    margin: 5px 0;
+}
+
+h3 {
+    font-size: 20px;
+    color: #333;
+}
 
 #notification-bell.active {
     color: red;  

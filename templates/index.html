@@ -10,10 +10,11 @@
   <body>
     <i id="notification-bell" class="fas fa-bell" onclick="toggleNotifications()"></i>
 
-    <div id="notification-container">
+    <div id="notification-container" style="display: none">
       <h4>Weather Alerts:</h4>
       <ul id="notification-list"></ul>
     </div>
+
     <div class="container">
       <h1>Weather App</h1>
       <input type="text" id="cityInput" placeholder="Enter city name..." />
@@ -23,8 +24,53 @@
       <div id="weather-info"></div>
     </div>
 
+    <div>
+      <label for="city-input">Enter City Name:</label>
+      <input type="text" id="city-input" placeholder="Enter city name" />
+      <button onclick="onCitySelected()">Get Forecast</button>
+    </div>
+
+    <div id="forecast-info"></div>
+
     <script>
       let hasUnreadNotification = false;
+
+      function onCitySelected() {
+        const cityInput = document.getElementById("city-input").value;
+        if (cityInput) {
+          getWeather(cityInput);
+          fetchAirPollutionForecast(cityInput);
+        } else {
+          alert("Please enter a city name");
+        }
+      }
+
+      function fetchAirPollutionForecast(city) {
+        fetch(`/predict?city=${city}`)
+          .then((response) => response.json())
+          .then((data) => displayAirPollutionForecast(data))
+          .catch((error) => {
+            console.error("Error fetching air pollution data:", error);
+          });
+      }
+
+      function displayAirPollutionForecast(data) {
+        const forecastInfo = document.getElementById("forecast-info");
+
+        if (data.error) {
+          forecastInfo.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+        } else {
+          forecastInfo.innerHTML = `
+            <h3>Air Pollution Forecast for ${data.city}</h3>
+            <p><strong>PM2.5:</strong> ${data.pm2_5.value} µg/m³ (${data.pm2_5.air_quality})</p>
+            <p><strong>PM10:</strong> ${data.pm10.value} µg/m³ (${data.pm10.air_quality})</p>
+            <p><strong>CO:</strong> ${data.co.value} µg/m³ (${data.co.air_quality})</p>
+            <p><strong>NO2:</strong> ${data.no2.value} µg/m³ (${data.no2.air_quality})</p>
+            <p><strong>SO2:</strong> ${data.so2.value} µg/m³ (${data.so2.air_quality})</p>
+            <p><strong>O3:</strong> ${data.o3.value} µg/m³ (${data.o3.air_quality})</p>
+          `;
+        }
+      }
 
       function toggleNotifications() {
         const notificationContainer = document.getElementById("notification-container");
@@ -77,16 +123,67 @@
 
       function displayWeather(data) {
         const weatherInfo = document.getElementById("weather-info");
+
         if (data.error) {
           weatherInfo.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
         } else {
-          weatherInfo.innerHTML = `
-                    <h3>Weather in ${data.weather.name}</h3>
-                    <p>Temperature: ${data.weather.main.temp}°C</p>
-                    <p>Humidity: ${data.weather.main.humidity}%</p>
-                    <p>Wind Speed: ${data.weather.wind.speed} m/s</p>
-                    <p><strong>Alerts:</strong> ${data.alerts.length > 0 ? data.alerts.join(", ") : "No alerts"}</p>
-                `;
+          const weather = data.weather;
+          const airPollutants = data.air_quality;
+          const alerts = data.alerts;
+
+          let weatherInfoHTML = `
+            <h3>Weather in ${weather.name}</h3>
+            <p><strong>Temperature:</strong> ${weather.main.temp}°C</p>
+            <p><strong>Humidity:</strong> ${weather.main.humidity}%</p>
+            <p><strong>Pressure:</strong> ${weather.main.pressure} hPa</p>
+            <p><strong>Wind Speed:</strong> ${weather.wind.speed} m/s</p>
+            <p><strong>Cloudiness:</strong> ${weather.clouds.all}%</p>
+            <p><strong>Visibility:</strong> ${weather.visibility / 1000} km</p>
+            <p><strong>Weather Description:</strong> ${weather.weather[0].description}</p>
+          `;
+
+          let airQualityInfo = "";
+          if (airPollutants) {
+            const pm25 = airPollutants.pm2_5 || "N/A";
+            const pm10 = airPollutants.pm10 || "N/A";
+            const co = airPollutants.co || "N/A";
+            const no2 = airPollutants.no2 || "N/A";
+            const o3 = airPollutants.o3 || "N/A";
+            const so2 = airPollutants.so2 || "N/A";
+
+            airQualityInfo = `
+              <p><strong>Air Quality:</strong></p>
+              <p>PM2.5: ${pm25} µg/m³</p>
+              <p>PM10: ${pm10} µg/m³</p>
+              <p>CO: ${co} µg/m³</p>
+              <p>NO2: ${no2} µg/m³</p>
+              <p>O3: ${o3} µg/m³</p>
+              <p>SO2: ${so2} µg/m³</p>
+            `;
+          }
+
+          let weatherAlertInfo = "";
+          if (alerts && alerts.length > 0) {
+            weatherAlertInfo = `<p><strong>Weather Alerts:</strong></p><ul>`;
+            alerts.forEach((alert) => {
+              weatherAlertInfo += `<li>${alert}</li>`;
+            });
+            weatherAlertInfo += `</ul>`;
+            hasUnreadNotification = true;
+            const bellIcon = document.getElementById("notification-bell");
+            bellIcon.classList.add("active");
+          }
+
+          let airQualityAlertInfo = "";
+          if (data.air_quality_alerts && data.air_quality_alerts.length > 0) {
+            airQualityAlertInfo = `<p><strong>Air Quality Alerts:</strong></p><ul>`;
+            data.air_quality_alerts.forEach((alert) => {
+              airQualityAlertInfo += `<li>${alert}</li>`;
+            });
+            airQualityAlertInfo += `</ul>`;
+          }
+
+          weatherInfo.innerHTML = weatherInfoHTML + weatherAlertInfo + airQualityAlertInfo + airQualityInfo;
         }
       }
 
@@ -130,6 +227,7 @@
             console.error("Error fetching alerts:", error);
           });
       }
+
       startNotifications();
     </script>
   </body>
