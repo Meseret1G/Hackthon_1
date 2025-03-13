@@ -12,33 +12,17 @@ body {
     right: 20px;
     color: #ccc;
 }
-button {
-    padding: 10px 20px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-button:hover {
-    background-color: #45a049;
-}
-
-#weather-info, #forecast-info {
+#result {
     margin-top: 20px;
-    font-family: Arial, sans-serif;
+    padding: 20px;
+    border: 1px solid #ccc;
+    display: none;
 }
-
-p {
-    margin: 5px 0;
-}
-
-h3 {
-    font-size: 20px;
-    color: #333;
-}
-
+.good { color: green; }
+.moderate { color: orange; }
+.unhealthy { color: red; }
+.very-unhealthy { color: purple; }
+.hazardous { color: brown; }
 #notification-bell.active {
     color: red;  
 }

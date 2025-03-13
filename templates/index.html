@@ -24,54 +24,64 @@
       <div id="weather-info"></div>
     </div>
 
-    <div>
-      <label for="city-input">Enter City Name:</label>
-      <input type="text" id="city-input" placeholder="Enter city name" />
-      <button onclick="onCitySelected()">Get Forecast</button>
-    </div>
-
-    <div id="forecast-info"></div>
+    <h1>Air Pollution Predictor</h1>
+    <input type="text" id="city" placeholder="Enter city name" />
+    <button onclick="getPollutionData()">Predict</button>
+    <div id="result"></div>
 
     <script>
       let hasUnreadNotification = false;
-
-      function onCitySelected() {
-        const cityInput = document.getElementById("city-input").value;
-        if (cityInput) {
-          getWeather(cityInput);
-          fetchAirPollutionForecast(cityInput);
-        } else {
+      async function getPollutionData() {
+        const city = document.getElementById("city").value;
+        if (!city) {
           alert("Please enter a city name");
+          return;
+        }
+        try {
+          const response = await fetch(`http://127.0.0.1:5000/predict?city=${encodeURIComponent(city)}`);
+          const data = await response.json();
+          if (data.error) {
+            document.getElementById("result").innerHTML = `<p style='color:red;'>${data.error}</p>`;
+          } else {
+            let output = `<h2>Air Quality in ${data.city}</h2>`;
+            output += `<table border='1' style='width: 100%; border-collapse: collapse;'>`;
+            output += `<tr><th>Pollutant</th><th>Value</th><th>Air Quality</th></tr>`;
+            Object.keys(data).forEach((key) => {
+              if (key !== "city") {
+                let qualityClass = getQualityClass(data[key].air_quality);
+                output += `<tr><td>${key.toUpperCase()}</td><td>${parseFloat(data[key].value).toFixed(2)}</td><td class='${qualityClass}'>${
+                  data[key].air_quality
+                }</td></tr>`;
+              }
+            });
+            output += `</table>`;
+            document.getElementById("result").innerHTML = output;
+            document.getElementById("result").style.display = "block";
+          }
+        } catch (error) {
+          document.getElementById("result").innerHTML = `<p style='color:red;'>Error fetching air quality data.</p>`;
+          console.error("Error fetching data:", error);
         }
       }
 
-      function fetchAirPollutionForecast(city) {
-        fetch(`/predict?city=${city}`)
-          .then((response) => response.json())
-          .then((data) => displayAirPollutionForecast(data))
-          .catch((error) => {
-            console.error("Error fetching air pollution data:", error);
-          });
-      }
-
-      function displayAirPollutionForecast(data) {
-        const forecastInfo = document.getElementById("forecast-info");
-
-        if (data.error) {
-          forecastInfo.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
-        } else {
-          forecastInfo.innerHTML = `
-            <h3>Air Pollution Forecast for ${data.city}</h3>
-            <p><strong>PM2.5:</strong> ${data.pm2_5.value} µg/m³ (${data.pm2_5.air_quality})</p>
-            <p><strong>PM10:</strong> ${data.pm10.value} µg/m³ (${data.pm10.air_quality})</p>
-            <p><strong>CO:</strong> ${data.co.value} µg/m³ (${data.co.air_quality})</p>
-            <p><strong>NO2:</strong> ${data.no2.value} µg/m³ (${data.no2.air_quality})</p>
-            <p><strong>SO2:</strong> ${data.so2.value} µg/m³ (${data.so2.air_quality})</p>
-            <p><strong>O3:</strong> ${data.o3.value} µg/m³ (${data.o3.air_quality})</p>
-          `;
+      function getQualityClass(quality) {
+        switch (quality) {
+          case "Good":
+            return "good";
+          case "Moderate":
+            return "moderate";
+          case "Unhealthy for Sensitive Groups":
+            return "unhealthy";
+          case "Unhealthy":
+            return "unhealthy";
+          case "Very Unhealthy":
+            return "very-unhealthy";
+          case "Hazardous":
+            return "hazardous";
+          default:
+            return "";
         }
       }
-
       function toggleNotifications() {
         const notificationContainer = document.getElementById("notification-container");
         const bellIcon = document.getElementById("notification-bell");
