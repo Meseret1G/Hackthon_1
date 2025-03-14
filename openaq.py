@@ -176,7 +176,6 @@ if st.button("Get Weather & Pollution Data"):
             pollutants = list(air_quality_data.keys())
             values = list(air_quality_data.values())
 
-            # Plotting Air Quality Data
             st.subheader("Air Quality Graph")
             fig, ax = plt.subplots()
             ax.bar(pollutants, values, color='skyblue')
@@ -196,7 +195,6 @@ if st.button("Get Weather & Pollution Data"):
             pollution_pollutants = list(predicted_pollution.keys())
             pollution_values = [data["value"] for data in predicted_pollution.values()]
 
-            # Plotting Predicted Pollution Data
             st.subheader("Predicted Pollution Graph")
             fig2, ax2 = plt.subplots()
             ax2.bar(pollution_pollutants, pollution_values, color='salmon')
