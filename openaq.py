@@ -75,6 +75,46 @@ def predict_pollution(lat, lon):
         st.error(f"Error predicting pollution data: {e}")
         return {}
 
+def get_user_city():
+    ip_response = requests.get(GEO_API_URL)
+    if ip_response.status_code == 200:
+        ip_data = ip_response.json()
+        return ip_data.get('city', 'DefaultCity')
+    return 'DefaultCity'
+
+def continuous_check(city):
+    while True:
+        weather_response = requests.get(f"http://127.0.0.1:5000/weather?city={city}")
+        if weather_response.status_code == 200:
+            weather_data = weather_response.json()
+            
+            lat = weather_data.get("coord", {}).get("lat")
+            lon = weather_data.get("coord", {}).get("lon")
+            air_quality_response = requests.get(f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={WEATHER_API_KEY}")
+            
+            if air_quality_response.status_code == 200:
+                air_quality_data = air_quality_response.json()["list"][0]["components"]
+                
+                alerts = check_alerts(weather_data, air_quality_data)
+                if alerts:
+                    for alert in alerts:
+                        print(alert)
+            else:
+                print("Error fetching air quality data.")
+        else:
+            print("Error fetching weather data.")
+        
+        time.sleep(10)
+def start_notifications():
+    city = get_user_city()
+    st.write(f"Weather and air quality notifications are starting for your city: {city}")
+
+    # Start background thread for continuous weather and air quality checking
+    if not hasattr(start_notifications, "check_thread"):
+        start_notifications.check_thread = threading.Thread(target=continuous_check, args=(city,), daemon=True)
+        start_notifications.check_thread.start()
+
+    st.success("Notifications started!")
 def check_alerts(weather_data, air_quality_data):
     temp = weather_data.get("temp", 0)
     humidity = weather_data.get("humidity", 0)
@@ -117,8 +157,27 @@ def get_weather(lat, lon):
         return None, None, ["Failed to retrieve weather data"]
 
 st.title(" Pollution & Weather Forecast App")
+location = get_current_location()
+city = get_user_city()
 
-city = st.text_input("Enter city name (leave empty to use current location):", "Addis Ababa")
+if location:
+    lat, lon = location
+    weather_data, air_quality_data, alerts = get_weather(lat, lon)
+    st.write(f"Your current city is: {city}")
+
+    if weather_data:
+        st.subheader("⚠️ Alerts")
+        if alerts:
+            for alert in alerts:
+                st.warning(alert)  
+        else:
+            st.success("No alerts detected.")
+    else:
+        st.error("Error fetching weather or air quality data.")
+else:
+    st.error("Unable to retrieve your location.")
+
+city = st.text_input("Enter city name (leave empty to use current location):", f"{city}")
 lat, lon = None, None
 
 if city:
