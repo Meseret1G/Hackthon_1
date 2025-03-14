@@ -76,11 +76,22 @@ def predict_pollution(lat, lon):
         return {}
 
 def get_user_city():
-    ip_response = requests.get(GEO_API_URL)
-    if ip_response.status_code == 200:
-        ip_data = ip_response.json()
-        return ip_data.get('city', 'DefaultCity')
-    return 'DefaultCity'
+    try:
+        ip_response = requests.get(GEO_API_URL)
+        if ip_response.status_code == 200:
+            ip_data = ip_response.json()
+            return ip_data.get('city', 'DefaultCity')
+    except requests.exceptions.RequestException:
+        return 'DefaultCity'
+
+def get_user_city():
+    location = geolocator.reverse(get_current_location(), language='en')
+    if location:
+        city = location.raw.get('city', 'DefaultCity')
+        return city
+    else:
+        return 'DefaultCity'
+
 
 def continuous_check(city):
     while True:
@@ -163,7 +174,7 @@ city = get_user_city()
 if location:
     lat, lon = location
     weather_data, air_quality_data, alerts = get_weather(lat, lon)
-    st.write(f"Your current city is: {city}")
+    # st.write(f"Your current city is: {city}")
 
     if weather_data:
         st.subheader("⚠️ Alerts")
