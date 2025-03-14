@@ -6,6 +6,7 @@ import tensorflow as tf
 import numpy as np
 from geopy.geocoders import Nominatim
 import geocoder
+import matplotlib.pyplot as plt
 
 model = tf.keras.models.load_model("pollution_forecasting_model.keras")
 geolocator = Nominatim(user_agent="pollution_forecaster")
@@ -39,7 +40,6 @@ def get_current_location():
     except Exception as e:
         st.error(f"Error getting current location: {e}")
         return None  
-
 
 def map_pollutant_to_air_quality(pollutant, value):
     if value <= 12:
@@ -83,60 +83,6 @@ def get_location_name(lat, lon):
     else:
         return "Location not found"
 
-def continuous_check(city):
-    while True:
-        weather_response = requests.get(f"http://127.0.0.1:5000/weather?city={city}")
-        if weather_response.status_code == 200:
-            weather_data = weather_response.json()
-            
-            lat = weather_data.get("coord", {}).get("lat")
-            lon = weather_data.get("coord", {}).get("lon")
-            air_quality_response = requests.get(f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={WEATHER_API_KEY}")
-            
-            if air_quality_response.status_code == 200:
-                air_quality_data = air_quality_response.json()["list"][0]["components"]
-                
-                alerts = check_alerts(weather_data, air_quality_data)
-                if alerts:
-                    for alert in alerts:
-                        print(alert)
-            else:
-                print("Error fetching air quality data.")
-        else:
-            print("Error fetching weather data.")
-        
-        time.sleep(3000)
-def start_notifications():
-    location = get_current_location()
-    lat, lon = location
-    city = get_location_name(lat, lon)
-    st.write(f"Weather and air quality notifications are starting for your city: {city}")
-
-    if not hasattr(start_notifications, "check_thread"):
-        start_notifications.check_thread = threading.Thread(target=continuous_check, args=(city,), daemon=True)
-        start_notifications.check_thread.start()
-
-    st.success("Notifications started!")
-def check_alerts(weather_data, air_quality_data):
-    temp = weather_data.get("temp", 0)
-    humidity = weather_data.get("humidity", 0)
-    wind_speed = weather_data.get("wind_speed", 0)
-
-    alerts = []
-    if temp >= ALERT_THRESHOLDS["weather"]["temp"]:
-        alerts.append(f"High Temperature Alert: {temp}°C!")
-    if humidity >= ALERT_THRESHOLDS["weather"]["humidity"]:
-        alerts.append(f"High Humidity Alert: {humidity}%!")
-    if wind_speed >= ALERT_THRESHOLDS["weather"]["wind_speed"]:
-        alerts.append(f"High Wind Speed Alert: {wind_speed} m/s!")
-
-    for key, threshold in ALERT_THRESHOLDS["air_quality"].items():
-        value = air_quality_data.get(key, 0)
-        if value >= threshold:
-            alerts.append(f"High {key.upper()} Levels: {value} µg/m³!")
-
-    return alerts
-
 def get_weather(lat, lon):
     try:
         weather_url = f"{WEATHER_API_URL}?lat={lat}&lon={lon}&appid={WEATHER_API_KEY}&units=metric"
@@ -164,13 +110,32 @@ def get_weather(lat, lon):
         st.error(f"Error with API request: {e}")
         return None, None, ["Failed to retrieve weather data"]
 
-st.title(" Pollution & Weather Forecast App")
-location = get_current_location()
+def check_alerts(weather_data, air_quality_data):
+    temp = weather_data.get("temp", 0)
+    humidity = weather_data.get("humidity", 0)
+    wind_speed = weather_data.get("wind_speed", 0)
 
+    alerts = []
+    if temp >= ALERT_THRESHOLDS["weather"]["temp"]:
+        alerts.append(f"High Temperature Alert: {temp}°C!")
+    if humidity >= ALERT_THRESHOLDS["weather"]["humidity"]:
+        alerts.append(f"High Humidity Alert: {humidity}%!")
+    if wind_speed >= ALERT_THRESHOLDS["weather"]["wind_speed"]:
+        alerts.append(f"High Wind Speed Alert: {wind_speed} m/s!")
+
+    for key, threshold in ALERT_THRESHOLDS["air_quality"].items():
+        value = air_quality_data.get(key, 0)
+        if value >= threshold:
+            alerts.append(f"High {key.upper()} Levels: {value} µg/m³!")
+
+    return alerts
+
+st.title("Pollution & Weather Forecast App")
+location = get_current_location()
 
 if location:
     lat, lon = location
-    city = get_location_name(lat,lon)
+    city = get_location_name(lat, lon)
     weather_data, air_quality_data, alerts = get_weather(lat, lon)
     st.write(f"Your current city is: {city}")
 
@@ -203,19 +168,22 @@ if st.button("Get Weather & Pollution Data"):
 
         if weather_data:
             st.subheader("🌦️ Weather Information")
-            weather_table = {
-                "Temperature (°C)": [weather_data['main']['temp']],
-                "Humidity (%)": [weather_data['main']['humidity']],
-                "Wind Speed (m/s)": [weather_data['wind']['speed']]
-            }
-            st.table(weather_table)
+            st.write(f"Temperature: {weather_data['main']['temp']} °C")
+            st.write(f"Humidity: {weather_data['main']['humidity']} %")
+            st.write(f"Wind Speed: {weather_data['wind']['speed']} m/s")
 
             st.subheader("🌫️ Air Quality Information")
-            air_quality_table = {
-                "Pollutant": list(air_quality_data.keys()),
-                "Value (µg/m³)": list(air_quality_data.values())
-            }
-            st.table(air_quality_table)
+            pollutants = list(air_quality_data.keys())
+            values = list(air_quality_data.values())
+
+            # Plotting Air Quality Data
+            st.subheader("Air Quality Graph")
+            fig, ax = plt.subplots()
+            ax.bar(pollutants, values, color='skyblue')
+            ax.set_xlabel('Pollutants')
+            ax.set_ylabel('Concentration (µg/m³)')
+            ax.set_title('Air Quality Levels')
+            st.pyplot(fig)
 
             st.subheader("⚠️ Alerts")
             if alerts:
@@ -225,12 +193,17 @@ if st.button("Get Weather & Pollution Data"):
                 st.success("No alerts detected.")
 
             st.subheader("📊 Predicted Pollution Levels")
-            pollution_table = {
-                "Pollutant": list(predicted_pollution.keys()),
-                "Value (µg/m³)": [data["value"] for data in predicted_pollution.values()],
-                "Air Quality": [data["air_quality"] for data in predicted_pollution.values()]
-            }
-            st.table(pollution_table)
+            pollution_pollutants = list(predicted_pollution.keys())
+            pollution_values = [data["value"] for data in predicted_pollution.values()]
+
+            # Plotting Predicted Pollution Data
+            st.subheader("Predicted Pollution Graph")
+            fig2, ax2 = plt.subplots()
+            ax2.bar(pollution_pollutants, pollution_values, color='salmon')
+            ax2.set_xlabel('Pollutants')
+            ax2.set_ylabel('Concentration (µg/m³)')
+            ax2.set_title('Predicted Pollution Levels')
+            st.pyplot(fig2)
 
         else:
             st.error("Error fetching data. Try again.")
