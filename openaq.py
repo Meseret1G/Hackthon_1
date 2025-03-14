@@ -40,6 +40,7 @@ def get_current_location():
         st.error(f"Error getting current location: {e}")
         return None  
 
+
 def map_pollutant_to_air_quality(pollutant, value):
     if value <= 12:
         return "Good"
@@ -75,23 +76,12 @@ def predict_pollution(lat, lon):
         st.error(f"Error predicting pollution data: {e}")
         return {}
 
-def get_user_city():
-    try:
-        ip_response = requests.get(GEO_API_URL)
-        if ip_response.status_code == 200:
-            ip_data = ip_response.json()
-            return ip_data.get('city', 'DefaultCity')
-    except requests.exceptions.RequestException:
-        return 'DefaultCity'
-
-def get_user_city():
-    location = geolocator.reverse(get_current_location(), language='en')
+def get_location_name(lat, lon):
+    location = geolocator.reverse((lat, lon), language='en')
     if location:
-        city = location.raw.get('city', 'DefaultCity')
-        return city
+        return location.address
     else:
-        return 'DefaultCity'
-
+        return "Location not found"
 
 def continuous_check(city):
     while True:
@@ -115,12 +105,13 @@ def continuous_check(city):
         else:
             print("Error fetching weather data.")
         
-        time.sleep(10)
+        time.sleep(3000)
 def start_notifications():
-    city = get_user_city()
+    location = get_current_location()
+    lat, lon = location
+    city = get_location_name(lat, lon)
     st.write(f"Weather and air quality notifications are starting for your city: {city}")
 
-    # Start background thread for continuous weather and air quality checking
     if not hasattr(start_notifications, "check_thread"):
         start_notifications.check_thread = threading.Thread(target=continuous_check, args=(city,), daemon=True)
         start_notifications.check_thread.start()
@@ -159,6 +150,12 @@ def get_weather(lat, lon):
             air_quality_data = air_quality_response.json()["list"][0]["components"] if air_quality_response.status_code == 200 else {}
 
             alerts = check_alerts(data["main"], air_quality_data)
+            if alerts:
+                with open("alerts.log", "a") as log_file:
+                    for alert in alerts:
+                        log_file.write(f"{time.ctime()}: {alert}\n")
+                        print(alert) 
+
             return data, air_quality_data, alerts
         else:
             st.error(f"Error fetching weather data: {response.status_code}")
@@ -169,12 +166,13 @@ def get_weather(lat, lon):
 
 st.title(" Pollution & Weather Forecast App")
 location = get_current_location()
-city = get_user_city()
+
 
 if location:
     lat, lon = location
+    city = get_location_name(lat,lon)
     weather_data, air_quality_data, alerts = get_weather(lat, lon)
-    # st.write(f"Your current city is: {city}")
+    st.write(f"Your current city is: {city}")
 
     if weather_data:
         st.subheader("⚠️ Alerts")
@@ -188,6 +186,8 @@ if location:
 else:
     st.error("Unable to retrieve your location.")
 
+city = city.split(",")
+city = city[3]
 city = st.text_input("Enter city name (leave empty to use current location):", f"{city}")
 lat, lon = None, None
 
