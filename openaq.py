@@ -13,7 +13,7 @@ geolocator = Nominatim(user_agent="pollution_forecaster")
 
 WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 AIR_POLLUTION_API_URL = "http://api.openweathermap.org/data/2.5/air_pollution"
-WEATHER_API_KEY = "2d0ca46555df760def36fb82d33f32eb"
+WEATHER_API_KEY = "WEATHER_API_KEY"
 GEO_API_URL = "http://ip-api.com/json/"
 
 ALERT_THRESHOLDS = {
